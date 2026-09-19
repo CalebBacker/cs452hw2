@@ -133,4 +133,6 @@ stdout on a terminal (make run), not redirected.
 
 AI Use
 ------
-TODO: write your own AI-use statement before submitting.
+Claude Code was used to help write and expand the tests, format code, and correct
+to correct and expand documentation where needed. I again used it for tutor functionality,
+mmap, and the buddy system.
