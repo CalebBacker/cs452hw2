@@ -1,0 +1,136 @@
+Buddy Allocator -- CS 452 HW2
+=============================
+
+Files
+-----
+  balloc.h       the given interface; documented, otherwise unchanged
+  balloc.c       the interface: argument checks, rounding, messages
+  freelist.h/.c  the Buddy algorithm: free lists and buddy bitmaps
+                 (interface changed from the handout; see Design)
+  bbm.h/.c       provided: buddy-pair bitmaps, buddy addresses;
+                 documented, code unchanged
+  bm.h/.c        provided: a general bitmap; documented, code unchanged
+  utils.h/.c     mmap() memory, power-of-two arithmetic, bit operations
+  error.h        HW1's WARN/ERROR macros; unchanged
+  test.h/.c      the test harness, and main()
+  *_test.c       each module's tests
+  GNUmakefile    this directory's makefile; ../GNUmakefile has the rules
+  deq/           the HW1 deque and its test suite, unchanged, run on
+                 this allocator through the given wrapper.c
+
+Building
+--------
+This directory's makefile needs ../GNUmakefile, the course makefile.
+
+  make           builds ./balloc, the test suite
+  make run       builds and runs it
+  make valgrind  runs it under valgrind
+  make clean     removes the built files
+
+  cd deq; make run   builds ./deq (HW1's deque and tests, with
+                     wrapper.c) and runs it; see "The wrapper" below
+
+./balloc and ./deq each exit 0 iff every test passes.
+
+Design
+------
+The modules form a stack, each using only those below it:
+
+  balloc     public interface: checks arguments, rounds requests to an
+             order, reports misuse
+  freelist   the Buddy algorithm: split, merge, find a block's order
+  bbm        a bitmap indexed by buddy pair, and buddy arithmetic
+  bm         a plain bitmap
+  utils      mmap(), powers of two, bits
+
+A block of order e is 2^e bytes, l <= e <= u, and starts at a multiple
+of 2^e from the pool's base.  Its buddy, the other half of the
+order-(e+1) block that contains it, is at an offset differing only in
+bit e.
+
+bcreate() rounds size up to a multiple of 2^l, and maps the pool, a
+small descriptor, and the free lists' bookkeeping.  No other call maps
+memory, and nothing calls malloc(), so the allocator can replace it.
+The pool is tiled with the largest aligned blocks of order <= u: blocks
+of 2^u, then one block per 1-bit of the remainder, largest first.  So a
+pool that is not a power of two, or is larger than 2^u, gets reasonably
+sized blocks.
+
+Free blocks are kept on one singly linked list per order.  The link is
+the first word of each free block, so 2^l must hold a pointer.
+Allocated blocks hold no management data at all.
+
+Each order also has two bitmaps, with a bit per buddy pair:
+
+  free   flipped whenever either buddy enters or leaves the list, so it
+         is 1 iff exactly one buddy is on the list.  A block being freed
+         is not on it, so the bit says whether its buddy is: whether to
+         merge.  (The Linux kernel's scheme.)
+  alloc  set when either buddy is allocated at that order, cleared when
+         the pair merges.  A block's order is the smallest order whose
+         alloc bit covers it: every pair inside an allocated block has
+         both bits 0.  That also lets bfree() and bsize() reject a
+         pointer that is not the start of an allocated block.
+
+balloc() takes a block of the order a request needs.  If that list is
+empty, it takes a larger block, recursively, splits it, keeps the lower
+half, and frees the upper.  bfree() finds the order, then merges while
+the buddy is free.  A freed block whose buddy is not free leaves the
+pair's alloc bit set; if the buddy was split, the bit is stale but
+harmless: a size lookup never looks above a block's own order, and the
+pair's eventual merge clears it.
+
+The freelist interface differs from the handout's: a FreeList records
+its pool's base, l and u, so they are not passed (possibly
+inconsistently) to every call.  And freeliststr() renders the pool as a
+string, "0:A16 16:F16 32:F32 ...", which the tests compare exactly.
+
+Semantics
+---------
+  bcreate  a pool of size bytes, blocks of 2^l..2^u bytes; needs
+           2^l >= sizeof(void *) and l <= u <= 30
+  balloc   a block of the smallest order holding size bytes, at least
+           2^l; 0 if size exceeds 2^u or no free block is large enough
+  bfree    returns a block; bfree of 0 does nothing
+  bsize    the block's size (a power of two), not the request's
+  bprint   the block map, each free list, and each bitmap
+  bdelete  unmaps the pool; bdelete of 0 does nothing
+
+Errors
+------
+Bad bcreate() arguments, or a failed mmap(), are reported by WARN(),
+and bcreate() returns 0.  Passing bfree() or bsize() anything but an
+allocated block of the pool (its middle, a freed block, a block of
+another pool, a stack address) is reported, and does nothing (bsize()
+returns 0).  So is a zero pool.  Running out of memory, or asking for
+more than 2^u bytes, is not an error: balloc() returns 0, as malloc()
+does.
+
+Testing
+-------
+The suite runs 93 tests, bottom up: utils, bm, bbm, freelist, balloc.
+The freelist tests check the pool's exact block map after splits,
+merges, exhaustion, frees in scrambled order, pools that are not a power
+of two (whose last blocks have no buddy), and a pool at an unaligned
+address.  The balloc tests cover argument checking, rounding, alignment,
+non-overlap, fragmentation, misuse, independent pools, and a stress test
+of 50,000 random allocations and frees that checks every block's
+contents and ends fully merged.  14 messages on stderr are expected,
+each announced: the misuse tests showing the error messages.
+
+The wrapper
+-----------
+deq/ holds HW1's deq.c, deq.h, error.h and main.c, unchanged, and the
+given wrapper.c, which defines malloc(), free() and realloc() on a
+4096-byte pool (l=4, u=12).  On Linux those definitions replace libc's,
+for libc's own calls too (strdup(), asprintf(), stdio buffers).  The
+wrapper needs gcc: it uses a nested function.
+
+stdout's buffer comes from malloc(), sized by where stdout goes:
+typically 1024 bytes for a terminal, but 4096 for a file or pipe.  4096
+is the whole pool, leaving nothing for the deque.  So run ./deq with
+stdout on a terminal (make run), not redirected.
+
+AI Use
+------
+TODO: write your own AI-use statement before submitting.

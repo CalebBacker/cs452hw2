@@ -1,0 +1,4 @@
+# onyx is Linux, and the given files must stay byte-identical to pub/hw2,
+# so keep LF endings in the working tree on every platform.
+* text eol=lf
+*.pdf binary
