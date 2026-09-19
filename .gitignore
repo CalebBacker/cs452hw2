@@ -11,5 +11,5 @@ try
 # macOS
 .DS_Store
 
-# IDE, generated on git init
-.idea/vcs.xml
+# JetBrains IDE
+.idea/
