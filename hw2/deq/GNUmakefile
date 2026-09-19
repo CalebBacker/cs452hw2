@@ -6,4 +6,4 @@ prog=deq
 objs=$(addprefix ../,utils.o bm.o bbm.o freelist.o balloc.o)
 ccflags=-I..
 
-include ../../GNUmakefile
+include ../GNUmakefile

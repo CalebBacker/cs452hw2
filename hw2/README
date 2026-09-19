@@ -14,13 +14,14 @@ Files
   error.h        HW1's WARN/ERROR macros; unchanged
   test.h/.c      the test harness, and main()
   *_test.c       each module's tests
-  GNUmakefile    this directory's makefile; ../GNUmakefile has the rules
+  GNUmakefile    the course makefile's rules, inlined so this
+                 directory builds on its own; deq/ includes it
   deq/           the HW1 deque and its test suite, unchanged, run on
                  this allocator through the given wrapper.c
 
 Building
 --------
-This directory's makefile needs ../GNUmakefile, the course makefile.
+This directory is self contained; nothing outside it is needed.
 
   make           builds ./balloc, the test suite
   make run       builds and runs it
